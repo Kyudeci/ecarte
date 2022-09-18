@@ -126,17 +126,16 @@ class Game(Player, AI):
                 logger(f"{self.trickLoser.name} wins the trick.", out=True)
                 self.trickLoser.tricks += 1
                 return self.trickLoser
-
-        elif (self.trickWinner.playedCard.color == self.eleventhCard.color) and (self.trickLoser.playedCard.color == self.eleventhCard.color):
-            if (self.trickWinner.playedCard.suit == self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
+        elif (self.trickWinner.playedCard.suit == self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
                 logger(f"{self.trickWinner.name} wins the trick.", out=True)
                 self.trickWinner.tricks += 1
                 return self.trickWinner
-            elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit == self.eleventhCard.suit):
-                logger(f"{self.trickLoser.name} wins the trick.", out=True)
-                self.trickLoser.tricks += 1
-                return self.trickLoser
-            elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
+        elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit == self.eleventhCard.suit):
+            logger(f"{self.trickLoser.name} wins the trick.", out=True)
+            self.trickLoser.tricks += 1
+            return self.trickLoser
+        elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
+            if (self.trickWinner.playedCard.suit == self.trickLoser.playedCard.suit):
                 if self.trickWinner.playedCard.value > self.trickLoser.playedCard.value:
                     logger(f"{self.trickWinner.name} wins the trick.", out=True)
                     self.trickWinner.tricks += 1
@@ -145,19 +144,12 @@ class Game(Player, AI):
                     logger(f"{self.trickLoser.name} wins the trick.", out=True)
                     self.trickLoser.tricks += 1
                     return self.trickLoser
-        elif (self.trickWinner.playedCard.color != self.eleventhCard.color) or (self.trickLoser.playedCard.color != self.eleventhCard.color):
-            if self.trickWinner.playedCard.color != self.trickLoser.playedCard.color:
-                logger(f"{self.trickWinner.name} wins the trick.", out=True)
-                self.trickWinner.tricks += 1
-                return self.trickWinner
-            elif self.trickWinner.playedCard.value > self.trickLoser.playedCard.value:
-                logger(f"{self.trickWinner.name} wins the trick.", out=True)
-                self.trickWinner.tricks += 1
-                return self.trickWinner
             else:
-                logger(f"{self.trickLoser.name} wins the trick.", out=True)
-                self.trickLoser.tricks += 1
-                return self.trickLoser
+                logger(f"{self.trickWinner.name} wins the trick.", out=True)
+                self.trickWinner.tricks += 1
+                return self.trickWinner
+       
+        
 
     def dealer_point(self):
         if self.eleventhCard.face == 'K':
