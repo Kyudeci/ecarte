@@ -1,5 +1,6 @@
 import datetime
-import random
+import inquirer
+import sys
 from mechanics import Player, AI
 from utils import logger
 from deck import EcarteDeck
@@ -7,7 +8,7 @@ from terminal_playing_cards import View, Card
 
 class Game(Player, AI):
     logger(f"\n##### {str(datetime.datetime.now())} ######")
-
+    
     def __init__(self):
         self.stateDesc = "Game State - Deck Creation"
         logger(self.stateDesc)
@@ -20,8 +21,10 @@ class Game(Player, AI):
         self.turnPlayer = None
         self.followPlayer = None
         self.prevWinner = None
+        self.prevLoser = None
         self.trickWinner = None
         self.trickLoser = None
+        self.menu_items = {"Start Game": self.game, "Quit":sys.exit}
         super().__init__()
 
     def update_state(self, state: str):
@@ -35,13 +38,14 @@ class Game(Player, AI):
             self.update_state(f"Round {game_round} Start")
             logger(self.stateDesc)
             self.set_roles(ai, p)
-            while p.points < 5 or ai.points < 5:
+            while not (p.points >= 5 or ai.points >= 5) or (p.points==ai.points) and ((p.points + ai.points != 0) and game_round == 1):
                 print(f"\t----Round {game_round}----")
+                logger(f"Score:\nPlayer: {p.points}\nOpponent:{ai.points}", out=True)
                 if self.prevWinner:
                     self.update_state(f"Round {game_round} Start")
                     p.hand = View(cards=[], spacing=-5)
                     ai.hand = View(cards=[], spacing=-5)
-                    self.set_roles(ai, p)
+                    self.set_roles(self.prevWinner, self.prevLoser)
                     self.deck.new_deck()
 
                 self.dealer.hand += self.deck.draw(3)
@@ -55,7 +59,6 @@ class Game(Player, AI):
                 self.dealer_point()
                 self.king_point()
                 # self.dealer._score_hand(self.eleventhCard)
-                p.show_hand()
                 first = True
                 self.update_state("Entering Discard Phase")
                 logger(self.stateDesc)
@@ -78,8 +81,8 @@ class Game(Player, AI):
                         self.dealer.discard(confirm)
                         if confirm:
                             self.dealer.hand += self.deck.draw(self.dealer.discardAmt)
-                        p.show_hand()
                     else:
+                        logger("Not enough cards in Deck for discard request")
                         break
 
                     first = False
@@ -91,114 +94,133 @@ class Game(Player, AI):
                     logger(f"Trick {turn+1}")
                     switch = self.play(flip=switch)
                 self.trick_point()
-                # p.hand += deck.draw(p.discardAmt)
                 game_round += 1
-                break
+            logger(f"Final Score:\nPlayer: {p.points}\nOpponent:{ai.points}", out=True)
             self.gameState = False
 
     def set_roles(self, a, b):
+        a.reset_state()
+        b.reset_state()
         self.dealer = self.followPlayer = self.trickLoser = a
         self.dealer.isDealer = True
+        self.dealer.turnPlayer = False
         self.player = self.turnPlayer = self.trickWinner = b
         self.player.turnPlayer = True
+        self.player.isDealer = False
 
     def play(self, flip = False):
+        logger(f"Game State - Pre Flip\nTrick Loser - {self.trickLoser.name}\nTrick Winner - {self.trickWinner.name}")
         if flip:
             # self.dealer.turnPlayer, self.player.turnPlayer = self.player.turnPlayer, self.dealer.turnPlayer
             self.trickLoser, self.trickWinner = self.trickWinner, self.trickLoser
+            logger(f"Game State - Post Flip\nTrick Loser - {self.trickLoser.name}\nTrick Winner - {self.trickWinner.name}")
 
         self.trickWinner.playedCard = self.trickWinner.play_card(self.eleventhCard)
         print(f"\n{self.trickWinner.name} played:", View(cards=[self.trickWinner.playedCard, self.dummy_card], spacing=-2))
         self.trickLoser.playedCard = self.trickLoser.play_card(self.trickWinner.playedCard)
         print(f"{self.trickLoser.name} played:", View(cards=[self.trickLoser.playedCard, self.dummy_card], spacing=-2))
         # create function that determines winner
-        winner = self.determine_winner()
-        if self.trickWinner != winner: return True
+        self.determine_winner()
+        if self.trickWinner != self.prevWinner: return True
         else: return False
 
     def determine_winner(self):
+        logger("Game State - Determining Winner")
         if (self.trickWinner.playedCard.suit == self.eleventhCard.suit) and (self.trickLoser.playedCard.suit == self.eleventhCard.suit):
             if self.trickWinner.playedCard.value > self.trickLoser.playedCard.value:
                 logger(f"{self.trickWinner.name} wins the trick.", out=True)
                 self.trickWinner.tricks += 1
-                return self.trickWinner
+                self.prevWinner, self.prevLoser = self.trickWinner, self.trickLoser
             else:
                 logger(f"{self.trickLoser.name} wins the trick.", out=True)
                 self.trickLoser.tricks += 1
-                return self.trickLoser
+                self.prevWinner, self.prevLoser = self.trickLoser, self.trickWinner
         elif (self.trickWinner.playedCard.suit == self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
                 logger(f"{self.trickWinner.name} wins the trick.", out=True)
                 self.trickWinner.tricks += 1
-                return self.trickWinner
+                self.prevWinner, self.prevLoser = self.trickWinner, self.trickLoser
         elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit == self.eleventhCard.suit):
             logger(f"{self.trickLoser.name} wins the trick.", out=True)
             self.trickLoser.tricks += 1
-            return self.trickLoser
+            self.prevWinner, self.prevLoser = self.trickLoser, self.trickWinner
         elif (self.trickWinner.playedCard.suit != self.eleventhCard.suit) and (self.trickLoser.playedCard.suit != self.eleventhCard.suit):
             if (self.trickWinner.playedCard.suit == self.trickLoser.playedCard.suit):
                 if self.trickWinner.playedCard.value > self.trickLoser.playedCard.value:
                     logger(f"{self.trickWinner.name} wins the trick.", out=True)
                     self.trickWinner.tricks += 1
-                    return self.trickWinner
+                    self.prevWinner, self.prevLoser = self.trickWinner, self.trickLoser
                 else:
                     logger(f"{self.trickLoser.name} wins the trick.", out=True)
                     self.trickLoser.tricks += 1
-                    return self.trickLoser
+                    self.prevWinner, self.prevLoser = self.trickLoser, self.trickWinner
             else:
                 logger(f"{self.trickWinner.name} wins the trick.", out=True)
                 self.trickWinner.tricks += 1
-                return self.trickWinner
+                self.prevWinner, self.prevLoser = self.trickWinner, self.trickLoser
        
         
 
     def dealer_point(self):
         if self.eleventhCard.face == 'K':
             self.dealer.points += 1
-            logger("\tEleventh Card is a King. Dealer gains a point.", out=True)
+            logger(f"\tEleventh Card is a King. Dealer({self.dealer.name}) gains a point. [{self.dealer.points}]", out=True)
 
     def king_point(self):
         king = 'K of ' + self.eleventhCard.suit
         pv = [True for card in self.player.hand if king == f'{card.face} of {card.suit}']
         if pv:
             self.player.points += 1
-            logger(f"\tKing of Trumps is in hand. {self.player.name} gains a point.", out=True)
-        dv = [True for card in self.dealer.hand if king == str(card)]
+            logger(f"\tKing of Trumps is in hand. {self.player.name} gains a point. [{self.player.points}]" , out=True)
+        dv = [True for card in self.dealer.hand if king == f'{card.face} of {card.suit}']
         if dv:
             self.dealer.points += 1
-            logger(f"\tKing of Trumps is in hand. {self.dealer.name} gains a point.", out=True)
+            logger(f"\tKing of Trumps is in hand. {self.dealer.name} gains a point. [{self.dealer.points}]", out=True)
 
     def trick_point(self):
         if self.dealer.tricks == 5:
             self.dealer.points += 2
-            logger(f"{self.dealer.name} won all 5 tricks, they gain two points.", out=True)
+            logger(f"{self.dealer.name} won all 5 tricks, they gain two points. [{self.dealer.points}]", out=True)
             if self.player.skip:
                 self.dealer.points += 1
                 logger(
-                    f"{self.dealer.name} gains one extra point because {self.player.name} did not make a proposal to discard.", out=True)
+                    f"{self.dealer.name} gains one extra point because {self.player.name} did not make a proposal to discard. [{self.dealer.points}]", out=True)
 
         elif self.dealer.tricks >= 3:
             self.dealer.points += 1
-            logger(f"{self.dealer.name} gains one point.", out=True)
+            logger(f"{self.dealer.name} gains one point. [{self.dealer.points}]", out=True)
             if self.player.skip:
                 self.dealer.points += 1
                 logger(
-                    f"{self.dealer.name} gains one extra point because {self.player.name} did not make a proposal to discard.", out=True)
+                    f"{self.dealer.name} gains one extra point because {self.player.name} did not make a proposal to discard. [{self.dealer.points}]", out=True)
 
         elif self.player.tricks == 5:
             self.player.points += 2
-            logger(f"{self.player.name} won all 5 tricks, they gain two points.", out=True)
+            logger(f"{self.player.name} won all 5 tricks, they gain two points. [{self.player.points}]", out=True)
             if self.dealer.reject:
                 self.player.points += 1
                 logger(
-                    f"{self.player.name} gains one extra point because {self.dealer.name} rejected the proposal to discard.", out=True)
+                    f"{self.player.name} gains one extra point because {self.player.name} rejected the proposal to discard. [{self.player.points}]", out=True)
 
         elif self.player.tricks >= 3:
-            self.dealer.points += 1
-            logger(f"{self.player.name} gains one point.", out=True)
+            self.player.points += 1
+            logger(f"{self.player.name} gains one point. [{self.player.points}]", out=True)
             if self.dealer.reject:
                 self.player.points += 1
                 logger(
-                    f"{self.player.name} gains one extra point because {self.dealer.name} rejected the proposal to discard.", out=True)
+                    f"{self.player.name} gains one extra point because {self.dealer.name} rejected the proposal to discard. [{self.player.points}]", out=True)
 
+    def play_again(self):
+        pass
+
+    def menu(self):
+        options = [
+                    inquirer.List("select",
+                                  message="MENU",
+                                  choices=list(self.menu_items.keys()),
+                                  default=None,
+                                  ),
+                ]
+        a2 = inquirer.prompt(options)
+        self.menu_items[a2["select"]]()
 g = Game()
 g.game()

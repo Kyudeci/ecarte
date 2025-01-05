@@ -28,6 +28,12 @@ class Mechanics:
     def play_card(self, card: Card):
         pass
 
+    def reset_state(self):
+        self.tricks = 0
+        self.reject = False
+        self.firstReject = False
+        self.playedCard = None
+
 class Player(Mechanics):
 
     def __init__(self):
@@ -42,6 +48,7 @@ class Player(Mechanics):
         self.discardAmt = 0
         deckSize = kwargs.get("deckSize", 21)
         oppDiscardAmt = kwargs.get("discardAmt", None)
+        self.show_hand()
         if not self.isDealer:
             q1 = [
                 inquirer.Confirm(
